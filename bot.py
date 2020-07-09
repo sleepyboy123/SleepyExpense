@@ -29,29 +29,35 @@ def message_handler(message):
     arguments = message.text.split()
     keyword = arguments[0]
     if keyword == "ADD":
-        if len(arguments) == 3 and add_expense(message.from_user.id, arguments[1], arguments[2]):
-            bot.send_message(message.chat.id, "Your entry has been added.")
+        if len(arguments) == 3:
+            add_expense(message, arguments[1], arguments[2])
         else:
             bot.send_message(message.chat.id, "Error inserting entry, please try again.")
     elif keyword == "DELETE":
-        bot.send_message(message.chat.id, "Delete")
+        if len(arguments) == 2:
+            delete_expense(message, arguments[1])
+        else:
+            bot.send_message(message.chat.id, "Error deleting entry, please try again.")
     elif keyword == "VIEW":
         view_expense(message)
     elif keyword == "UPDATE":
         bot.send_message(message.chat.id, "Update")
+    elif keyword == "CLEAR":
+        clear_expense(message)
     else:
         bot.send_message(message.chat.id, "Message is not recognised")
 
 
-def add_expense(user_id, description, value):
+def add_expense(message, description, value):
     try:
         float(value)
         conn = sqlite3.connect('expense.db')
         print("Opened database successfully")
-        params = (user_id, description, value)
+        params = (message.from_user.id, description, value)
         conn.execute("INSERT INTO EXPENSE (USER, DESCRIPTION, VALUE) VALUES (?, ?, ?)", params)
         conn.commit()
-        print("Data added")
+        print("Data has been added")
+        bot.send_message(message.chat.id, "Your entry has been added.")
         conn.close()
     except ValueError as e:
         print(e)
@@ -60,19 +66,47 @@ def add_expense(user_id, description, value):
 
 
 def view_expense(message):
-    user_id = message.from_user.id
     conn = sqlite3.connect('expense.db')
     print("Opened database successfully")
-    cursor = conn.execute("SELECT ID, DESCRIPTION, VALUE FROM EXPENSE WHERE USER = " + str(user_id))
+    cursor = conn.execute("SELECT ID, DESCRIPTION, VALUE FROM EXPENSE WHERE USER = " + str(message.from_user.id))
     results = ""
     for row in cursor:
         results += "ID: " + str(row[0]) + " DESCRIPTION: " + row[1] + " VALUE: " + str(row[2]) + "\n"
     if results == "":
         print("No results were found")
-        bot.send_message(message.chat.id, "No results were found")
+        bot.send_message(message.chat.id, "No results were found.")
     else:
         print("Data has been fetched")
         bot.send_message(message.chat.id, results)
+    conn.close()
+    return True
+
+
+def delete_expense(message, expense_id):
+    try:
+        int(expense_id)
+        conn = sqlite3.connect('expense.db')
+        print("Opened database successfully")
+        params = (expense_id, message.from_user.id)
+        conn.execute("DELETE FROM EXPENSE WHERE ID = ? AND USER = ?", params)
+        conn.commit()
+        print("Data has been deleted")
+        bot.send_message(message.chat.id, "Data has been deleted.")
+        conn.close()
+    except ValueError as e:
+        print(e)
+        bot.send_message(message.chat.id, "Please input a numerical ID.")
+        return False
+
+
+def clear_expense(message):
+    conn = sqlite3.connect('expense.db')
+    print("Opened database successfully")
+    conn.execute("DELETE FROM EXPENSE WHERE USER = " + str(message.from_user.id))
+    conn.commit()
+    print("Data has been cleared")
+    bot.send_message(message.chat.id, "Data has been cleared.")
+    conn.close()
     return True
 
 
